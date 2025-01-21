@@ -1,0 +1,57 @@
+#version: "3.8"
+services:
+  # DataStax Enterprise
+  dse:
+    container_name: dse
+    image: datastax/dse-server:6.8.4
+    platform: linux/amd64 # Forzar AMD64 si estás en ARM64
+    command: [ "-g", "-s" ] # Activar Graph y Search
+    ports:
+      - "9043:9043" # Puerto para CQL (sin conflicto con 9042 del host)
+      - "8182:8182" # Puerto para Graph
+      - "9077:9077" # Puerto para AlwaysOn SQL
+    environment:
+      DS_LICENSE: accept # Aceptar la licencia de DataStax
+      HEAP_NEWSIZE: 128M
+      MAX_HEAP_SIZE: 512M
+      JVM_EXTRA_OPTS: "-XX:MaxDirectMemorySize=512M" # Ajuste manual para la JVM
+    volumes:
+      - dse_data:/var/lib/cassandra # Persistencia de datos de Cassandra
+    cap_add:
+      - IPC_LOCK # Permitir bloqueo de memoria
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1 # Permitir uso ilimitado de memoria bloqueada
+    restart: unless-stopped # Reiniciar automáticamente si el contenedor falla
+    networks:
+      - dse
+
+  # DataStax Studio
+  studio:
+    container_name: studio
+    image: datastax/dse-studio:6.8.4
+    platform: linux/amd64 # Forzar AMD64 si estás en ARM64
+    command: [ "-g", "-s" ] # Activar Graph y Search
+    depends_on:
+      - dse # Esperar a que DSE esté listo
+    ports:
+      - "9091:9091" # Puerto para la interfaz web de Studio
+    environment:
+      DS_LICENSE: accept # Aceptar la licencia de DataStax
+      DS_GRAPH_HOSTS: dse # Conectar Studio al contenedor "dse"
+    volumes:
+      - studio_notebooks:/var/lib/datastax-studio # Persistencia para notebooks
+    restart: unless-stopped # Reiniciar automáticamente si el contenedor falla
+    networks:
+      - dse
+
+volumes:
+  dse_data:
+    driver: local
+  studio_notebooks:
+    driver: local
+
+networks:
+  dse:
+    driver: bridge
